@@ -1,0 +1,32 @@
+LDA		[1003]
+SUBA	3
+JGE		6		//goto B
+LDA		0
+STA		[0]
+JGE		20		//goto AI
+LDA		[1002]	//B
+SUBA	3
+JGE		12		//goto C
+LDA		3		
+STA		[0]
+JGE		24		//goto BI
+LDA		[1000] 	//C
+SUBA	6
+JGE		18		//goto	D
+LDA		2
+STA		[0]
+JGE		28		//goto CI
+LDA		1		//D
+STA		[0]
+LDA		[1003]	//AI
+ADDA	1
+STA		[1003]
+HLT
+LDA		[1002]	//BI
+ADDA	1
+STA		[1002]
+HLT
+LDA		[1000]	//CI
+ADDA	1
+STA		[1000]
+HLT

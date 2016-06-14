@@ -1,0 +1,52 @@
+LDA		[1003]
+SUBA	3
+JGE		6		//goto B
+LDA		4		//left
+STA		[0]
+JGE		32		//goto AI
+LDA		[1002]	//B
+SUBA	19
+JGE		12		//goto C
+LDA		3		//down		
+STA		[0]
+JGE		36		//goto BI
+LDA		[1000] 	//C
+SUBA	19
+JGE		18		//goto	D
+LDA		2		//right
+STA		[0]
+JGE		40		//goto CI
+LDA		[1004]	//D
+SUBA	7
+JGE		24		//GOTO E
+LDA		1		//up
+STA		[0]
+JGE		44		//GOTO DI
+LDA		[1005]	//E
+SUBA	3
+JGE		30		//GOTO F
+LDA		4		//left
+STA		[0]
+JGE		48		//GOTO EI
+LDA		4		//F
+STA		[0]
+LDA		[1003]	//AI
+ADDA	1
+STA		[1003]
+HLT
+LDA		[1002]	//BI
+ADDA	1
+STA		[1002]
+HLT
+LDA		[1000]	//CI
+ADDA	1
+STA		[1000]
+HLT
+LDA		[1004]	//DI
+ADDA	1
+STA		[1004]
+HLT
+LDA		[1005]	//EI
+ADDA	1
+STA		[1005]
+HLT

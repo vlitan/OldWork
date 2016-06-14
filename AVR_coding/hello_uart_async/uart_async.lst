@@ -1,0 +1,560 @@
+   1               		.file	"uart_async.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               	.global	uart_putchar
+  12               	uart_putchar:
+  13               	.LFB2:
+  14               		.file 1 "uart_async.c"
+   1:uart_async.c  **** /* Based on Atmel Application Note AVR 306 */
+   2:uart_async.c  **** 
+   3:uart_async.c  **** #define F_CPU 16000000UL
+   4:uart_async.c  **** 
+   5:uart_async.c  **** #include <avr/io.h>
+   6:uart_async.c  **** #include <avr/interrupt.h>
+   7:uart_async.c  **** #include <stdio.h>
+   8:uart_async.c  **** 
+   9:uart_async.c  **** #include "uart.h"
+  10:uart_async.c  **** 
+  11:uart_async.c  **** #ifndef BAUD
+  12:uart_async.c  **** #define BAUD 9600
+  13:uart_async.c  **** #endif
+  14:uart_async.c  **** #include <util/setbaud.h>
+  15:uart_async.c  **** 
+  16:uart_async.c  **** #ifndef UART_RX_BUFFER_SIZE
+  17:uart_async.c  **** #define UART_RX_BUFFER_SIZE 64
+  18:uart_async.c  **** #endif
+  19:uart_async.c  **** 
+  20:uart_async.c  **** #ifndef UART_TX_BUFFER_SIZE
+  21:uart_async.c  **** #define UART_TX_BUFFER_SIZE 64
+  22:uart_async.c  **** #endif
+  23:uart_async.c  **** 
+  24:uart_async.c  **** struct tx_ring {
+  25:uart_async.c  ****     int buffer[UART_TX_BUFFER_SIZE];
+  26:uart_async.c  ****     int start;
+  27:uart_async.c  ****     int end;
+  28:uart_async.c  **** };
+  29:uart_async.c  **** 
+  30:uart_async.c  **** struct rx_ring {
+  31:uart_async.c  ****     int buffer[UART_RX_BUFFER_SIZE];
+  32:uart_async.c  ****     int start;
+  33:uart_async.c  ****     int end;
+  34:uart_async.c  **** };
+  35:uart_async.c  **** 
+  36:uart_async.c  **** static struct tx_ring tx_buffer;
+  37:uart_async.c  **** static struct rx_ring rx_buffer;
+  38:uart_async.c  **** 
+  39:uart_async.c  **** FILE uart_output = FDEV_SETUP_STREAM(uart_putchar, NULL, _FDEV_SETUP_WRITE);
+  40:uart_async.c  **** FILE uart_input = FDEV_SETUP_STREAM(NULL, uart_getchar, _FDEV_SETUP_READ);
+  41:uart_async.c  **** 
+  42:uart_async.c  **** 
+  43:uart_async.c  **** /* http://www.cs.mun.ca/~rod/Winter2007/4723/notes/serial/serial.html */
+  44:uart_async.c  **** 
+  45:uart_async.c  **** void uart_init(void) {
+  46:uart_async.c  ****     
+  47:uart_async.c  ****     tx_buffer.start = 0;
+  48:uart_async.c  ****     tx_buffer.end   = 0;
+  49:uart_async.c  **** 
+  50:uart_async.c  ****     rx_buffer.start = 0;
+  51:uart_async.c  ****     rx_buffer.end   = 0;
+  52:uart_async.c  ****     
+  53:uart_async.c  ****     UBRR0H = UBRRH_VALUE;
+  54:uart_async.c  ****     UBRR0L = UBRRL_VALUE;
+  55:uart_async.c  **** 
+  56:uart_async.c  ****     UCSR0C = _BV(UCSZ01) | _BV(UCSZ00); /* 8-bit data */ 
+  57:uart_async.c  ****     UCSR0B = _BV(RXEN0) | _BV(TXEN0);   /* Enable RX and TX */  
+  58:uart_async.c  ****     
+  59:uart_async.c  ****     sei();  
+  60:uart_async.c  **** }
+  61:uart_async.c  **** 
+  62:uart_async.c  **** int uart_putchar(char c, FILE *stream) {
+  15               		.loc 1 62 0
+  16               		.cfi_startproc
+  17               	.LVL0:
+  18 0000 CF93      		push r28
+  19               	.LCFI0:
+  20               		.cfi_def_cfa_offset 3
+  21               		.cfi_offset 28, -2
+  22               	/* prologue: function */
+  23               	/* frame size = 0 */
+  24               	/* stack size = 1 */
+  25               	.L__stack_usage = 1
+  26 0002 C82F      		mov r28,r24
+  63:uart_async.c  ****     if (c == '\n') {
+  27               		.loc 1 63 0
+  28 0004 8A30      		cpi r24,lo8(10)
+  29 0006 01F4      		brne .L2
+  64:uart_async.c  ****         uart_putchar('\r', stream);
+  30               		.loc 1 64 0
+  31 0008 8DE0      		ldi r24,lo8(13)
+  32               	.LVL1:
+  33 000a 0E94 0000 		call uart_putchar
+  34               	.LVL2:
+  35               	.L2:
+  65:uart_async.c  ****     }
+  66:uart_async.c  ****     
+  67:uart_async.c  ****     int write_pointer = (tx_buffer.end + 1) % UART_TX_BUFFER_SIZE;
+  36               		.loc 1 67 0
+  37 000e E091 0000 		lds r30,tx_buffer+130
+  38 0012 F091 0000 		lds r31,tx_buffer+130+1
+  39 0016 CF01      		movw r24,r30
+  40 0018 0196      		adiw r24,1
+  41 001a 60E4      		ldi r22,lo8(64)
+  42 001c 70E0      		ldi r23,0
+  43 001e 0E94 0000 		call __divmodhi4
+  44 0022 9C01      		movw r18,r24
+  45               	.LVL3:
+  68:uart_async.c  ****     
+  69:uart_async.c  ****     if (write_pointer != tx_buffer.start){
+  46               		.loc 1 69 0
+  47 0024 4091 0000 		lds r20,tx_buffer+128
+  48 0028 5091 0000 		lds r21,tx_buffer+128+1
+  49 002c 8417      		cp r24,r20
+  50 002e 9507      		cpc r25,r21
+  51 0030 01F0      		breq .L3
+  70:uart_async.c  ****         tx_buffer.buffer[tx_buffer.end] = c;
+  52               		.loc 1 70 0
+  53 0032 EE0F      		lsl r30
+  54 0034 FF1F      		rol r31
+  55 0036 E050      		subi r30,lo8(-(tx_buffer))
+  56 0038 F040      		sbci r31,hi8(-(tx_buffer))
+  57 003a 8C2F      		mov r24,r28
+  58 003c 90E0      		ldi r25,0
+  59 003e 9183      		std Z+1,r25
+  60 0040 8083      		st Z,r24
+  71:uart_async.c  ****         tx_buffer.end = write_pointer;
+  61               		.loc 1 71 0
+  62 0042 3093 0000 		sts tx_buffer+130+1,r19
+  63 0046 2093 0000 		sts tx_buffer+130,r18
+  72:uart_async.c  ****         
+  73:uart_async.c  ****         /* Data available. Enable the transmit interrupt for serial port 0. */
+  74:uart_async.c  ****         UCSR0B |= _BV(UDRIE0);  
+  64               		.loc 1 74 0
+  65 004a 8091 C100 		lds r24,193
+  66 004e 8062      		ori r24,lo8(32)
+  67 0050 8093 C100 		sts 193,r24
+  68               	.L3:
+  75:uart_async.c  ****     }
+  76:uart_async.c  ****     
+  77:uart_async.c  ****     return 0;
+  78:uart_async.c  **** }
+  69               		.loc 1 78 0
+  70 0054 80E0      		ldi r24,0
+  71 0056 90E0      		ldi r25,0
+  72               	/* epilogue start */
+  73 0058 CF91      		pop r28
+  74               	.LVL4:
+  75 005a 0895      		ret
+  76               		.cfi_endproc
+  77               	.LFE2:
+  79               	.global	uart_getchar
+  81               	uart_getchar:
+  82               	.LFB3:
+  79:uart_async.c  **** 
+  80:uart_async.c  **** int uart_getchar(FILE *stream) {
+  83               		.loc 1 80 0
+  84               		.cfi_startproc
+  85               	.LVL5:
+  86 005c CF93      		push r28
+  87               	.LCFI1:
+  88               		.cfi_def_cfa_offset 3
+  89               		.cfi_offset 28, -2
+  90 005e DF93      		push r29
+  91               	.LCFI2:
+  92               		.cfi_def_cfa_offset 4
+  93               		.cfi_offset 29, -3
+  94               	/* prologue: function */
+  95               	/* frame size = 0 */
+  96               	/* stack size = 2 */
+  97               	.L__stack_usage = 2
+  81:uart_async.c  ****     int read_pointer = (rx_buffer.start + 1) % UART_RX_BUFFER_SIZE;
+  98               		.loc 1 81 0
+  99 0060 C0E0      		ldi r28,lo8(rx_buffer+128)
+ 100 0062 D0E0      		ldi r29,hi8(rx_buffer+128)
+ 101 0064 8881      		ld r24,Y
+ 102 0066 9981      		ldd r25,Y+1
+ 103               	.LVL6:
+ 104 0068 0196      		adiw r24,1
+ 105 006a 60E4      		ldi r22,lo8(64)
+ 106 006c 70E0      		ldi r23,0
+ 107 006e 0E94 0000 		call __divmodhi4
+ 108               	.LVL7:
+  82:uart_async.c  ****     
+  83:uart_async.c  ****     rx_buffer.start = read_pointer;
+ 109               		.loc 1 83 0
+ 110 0072 9983      		std Y+1,r25
+ 111 0074 8883      		st Y,r24
+  84:uart_async.c  ****     return rx_buffer.buffer[read_pointer];
+ 112               		.loc 1 84 0
+ 113 0076 FC01      		movw r30,r24
+ 114 0078 EE0F      		lsl r30
+ 115 007a FF1F      		rol r31
+ 116 007c E050      		subi r30,lo8(-(rx_buffer))
+ 117 007e F040      		sbci r31,hi8(-(rx_buffer))
+  85:uart_async.c  **** }
+ 118               		.loc 1 85 0
+ 119 0080 8081      		ld r24,Z
+ 120 0082 9181      		ldd r25,Z+1
+ 121               	.LVL8:
+ 122               	/* epilogue start */
+ 123 0084 DF91      		pop r29
+ 124 0086 CF91      		pop r28
+ 125 0088 0895      		ret
+ 126               		.cfi_endproc
+ 127               	.LFE3:
+ 129               	.global	uart_init
+ 131               	uart_init:
+ 132               	.LFB1:
+  45:uart_async.c  **** void uart_init(void) {
+ 133               		.loc 1 45 0
+ 134               		.cfi_startproc
+ 135               	/* prologue: function */
+ 136               	/* frame size = 0 */
+ 137               	/* stack size = 0 */
+ 138               	.L__stack_usage = 0
+  47:uart_async.c  ****     tx_buffer.start = 0;
+ 139               		.loc 1 47 0
+ 140 008a 1092 0000 		sts tx_buffer+128+1,__zero_reg__
+ 141 008e 1092 0000 		sts tx_buffer+128,__zero_reg__
+  48:uart_async.c  ****     tx_buffer.end   = 0;
+ 142               		.loc 1 48 0
+ 143 0092 1092 0000 		sts tx_buffer+130+1,__zero_reg__
+ 144 0096 1092 0000 		sts tx_buffer+130,__zero_reg__
+  50:uart_async.c  ****     rx_buffer.start = 0;
+ 145               		.loc 1 50 0
+ 146 009a 1092 0000 		sts rx_buffer+128+1,__zero_reg__
+ 147 009e 1092 0000 		sts rx_buffer+128,__zero_reg__
+  51:uart_async.c  ****     rx_buffer.end   = 0;
+ 148               		.loc 1 51 0
+ 149 00a2 1092 0000 		sts rx_buffer+130+1,__zero_reg__
+ 150 00a6 1092 0000 		sts rx_buffer+130,__zero_reg__
+  53:uart_async.c  ****     UBRR0H = UBRRH_VALUE;
+ 151               		.loc 1 53 0
+ 152 00aa 1092 C500 		sts 197,__zero_reg__
+  54:uart_async.c  ****     UBRR0L = UBRRL_VALUE;
+ 153               		.loc 1 54 0
+ 154 00ae 87E6      		ldi r24,lo8(103)
+ 155 00b0 8093 C400 		sts 196,r24
+  56:uart_async.c  ****     UCSR0C = _BV(UCSZ01) | _BV(UCSZ00); /* 8-bit data */ 
+ 156               		.loc 1 56 0
+ 157 00b4 86E0      		ldi r24,lo8(6)
+ 158 00b6 8093 C200 		sts 194,r24
+  57:uart_async.c  ****     UCSR0B = _BV(RXEN0) | _BV(TXEN0);   /* Enable RX and TX */  
+ 159               		.loc 1 57 0
+ 160 00ba 88E1      		ldi r24,lo8(24)
+ 161 00bc 8093 C100 		sts 193,r24
+  59:uart_async.c  ****     sei();  
+ 162               		.loc 1 59 0
+ 163               	/* #APP */
+ 164               	 ;  59 "uart_async.c" 1
+ 165 00c0 7894      		sei
+ 166               	 ;  0 "" 2
+ 167               	/* #NOAPP */
+ 168 00c2 0895      		ret
+ 169               		.cfi_endproc
+ 170               	.LFE1:
+ 172               	.global	__vector_18
+ 174               	__vector_18:
+ 175               	.LFB4:
+  86:uart_async.c  **** 
+  87:uart_async.c  **** ISR(USART_RX_vect) {
+ 176               		.loc 1 87 0
+ 177               		.cfi_startproc
+ 178 00c4 1F92      		push r1
+ 179               	.LCFI3:
+ 180               		.cfi_def_cfa_offset 3
+ 181               		.cfi_offset 1, -2
+ 182 00c6 0F92      		push r0
+ 183               	.LCFI4:
+ 184               		.cfi_def_cfa_offset 4
+ 185               		.cfi_offset 0, -3
+ 186 00c8 0FB6      		in r0,__SREG__
+ 187 00ca 0F92      		push r0
+ 188 00cc 1124      		clr __zero_reg__
+ 189 00ce 2F93      		push r18
+ 190               	.LCFI5:
+ 191               		.cfi_def_cfa_offset 5
+ 192               		.cfi_offset 18, -4
+ 193 00d0 3F93      		push r19
+ 194               	.LCFI6:
+ 195               		.cfi_def_cfa_offset 6
+ 196               		.cfi_offset 19, -5
+ 197 00d2 5F93      		push r21
+ 198               	.LCFI7:
+ 199               		.cfi_def_cfa_offset 7
+ 200               		.cfi_offset 21, -6
+ 201 00d4 6F93      		push r22
+ 202               	.LCFI8:
+ 203               		.cfi_def_cfa_offset 8
+ 204               		.cfi_offset 22, -7
+ 205 00d6 7F93      		push r23
+ 206               	.LCFI9:
+ 207               		.cfi_def_cfa_offset 9
+ 208               		.cfi_offset 23, -8
+ 209 00d8 8F93      		push r24
+ 210               	.LCFI10:
+ 211               		.cfi_def_cfa_offset 10
+ 212               		.cfi_offset 24, -9
+ 213 00da 9F93      		push r25
+ 214               	.LCFI11:
+ 215               		.cfi_def_cfa_offset 11
+ 216               		.cfi_offset 25, -10
+ 217 00dc AF93      		push r26
+ 218               	.LCFI12:
+ 219               		.cfi_def_cfa_offset 12
+ 220               		.cfi_offset 26, -11
+ 221 00de BF93      		push r27
+ 222               	.LCFI13:
+ 223               		.cfi_def_cfa_offset 13
+ 224               		.cfi_offset 27, -12
+ 225 00e0 EF93      		push r30
+ 226               	.LCFI14:
+ 227               		.cfi_def_cfa_offset 14
+ 228               		.cfi_offset 30, -13
+ 229 00e2 FF93      		push r31
+ 230               	.LCFI15:
+ 231               		.cfi_def_cfa_offset 15
+ 232               		.cfi_offset 31, -14
+ 233               	/* prologue: Signal */
+ 234               	/* frame size = 0 */
+ 235               	/* stack size = 14 */
+ 236               	.L__stack_usage = 14
+  88:uart_async.c  ****     int write_pointer = (rx_buffer.end + 1) % UART_RX_BUFFER_SIZE;
+ 237               		.loc 1 88 0
+ 238 00e4 E091 0000 		lds r30,rx_buffer+130
+ 239 00e8 F091 0000 		lds r31,rx_buffer+130+1
+ 240 00ec CF01      		movw r24,r30
+ 241 00ee 0196      		adiw r24,1
+ 242 00f0 60E4      		ldi r22,lo8(64)
+ 243 00f2 70E0      		ldi r23,0
+ 244 00f4 0E94 0000 		call __divmodhi4
+ 245               	.LVL9:
+  89:uart_async.c  **** 
+  90:uart_async.c  ****     /* Add next byte to ringbuffer if it has space available. */
+  91:uart_async.c  ****     if (write_pointer != rx_buffer.start){
+ 246               		.loc 1 91 0
+ 247 00f8 2091 0000 		lds r18,rx_buffer+128
+ 248 00fc 3091 0000 		lds r19,rx_buffer+128+1
+ 249 0100 8217      		cp r24,r18
+ 250 0102 9307      		cpc r25,r19
+ 251 0104 01F0      		breq .L7
+  92:uart_async.c  ****         rx_buffer.buffer[rx_buffer.end] = UDR0;
+ 252               		.loc 1 92 0
+ 253 0106 2091 C600 		lds r18,198
+ 254 010a EE0F      		lsl r30
+ 255 010c FF1F      		rol r31
+ 256 010e E050      		subi r30,lo8(-(rx_buffer))
+ 257 0110 F040      		sbci r31,hi8(-(rx_buffer))
+ 258 0112 30E0      		ldi r19,0
+ 259 0114 3183      		std Z+1,r19
+ 260 0116 2083      		st Z,r18
+  93:uart_async.c  ****         rx_buffer.end = write_pointer;
+ 261               		.loc 1 93 0
+ 262 0118 9093 0000 		sts rx_buffer+130+1,r25
+ 263 011c 8093 0000 		sts rx_buffer+130,r24
+ 264               	.L7:
+ 265               	/* epilogue start */
+  94:uart_async.c  ****     }
+  95:uart_async.c  **** }
+ 266               		.loc 1 95 0
+ 267 0120 FF91      		pop r31
+ 268 0122 EF91      		pop r30
+ 269 0124 BF91      		pop r27
+ 270 0126 AF91      		pop r26
+ 271 0128 9F91      		pop r25
+ 272 012a 8F91      		pop r24
+ 273               	.LVL10:
+ 274 012c 7F91      		pop r23
+ 275 012e 6F91      		pop r22
+ 276 0130 5F91      		pop r21
+ 277 0132 3F91      		pop r19
+ 278 0134 2F91      		pop r18
+ 279 0136 0F90      		pop r0
+ 280 0138 0FBE      		out __SREG__,r0
+ 281 013a 0F90      		pop r0
+ 282 013c 1F90      		pop r1
+ 283 013e 1895      		reti
+ 284               		.cfi_endproc
+ 285               	.LFE4:
+ 287               	.global	__vector_19
+ 289               	__vector_19:
+ 290               	.LFB5:
+  96:uart_async.c  **** 
+  97:uart_async.c  **** ISR(USART_UDRE_vect){
+ 291               		.loc 1 97 0
+ 292               		.cfi_startproc
+ 293 0140 1F92      		push r1
+ 294               	.LCFI16:
+ 295               		.cfi_def_cfa_offset 3
+ 296               		.cfi_offset 1, -2
+ 297 0142 0F92      		push r0
+ 298               	.LCFI17:
+ 299               		.cfi_def_cfa_offset 4
+ 300               		.cfi_offset 0, -3
+ 301 0144 0FB6      		in r0,__SREG__
+ 302 0146 0F92      		push r0
+ 303 0148 1124      		clr __zero_reg__
+ 304 014a 2F93      		push r18
+ 305               	.LCFI18:
+ 306               		.cfi_def_cfa_offset 5
+ 307               		.cfi_offset 18, -4
+ 308 014c 3F93      		push r19
+ 309               	.LCFI19:
+ 310               		.cfi_def_cfa_offset 6
+ 311               		.cfi_offset 19, -5
+ 312 014e 5F93      		push r21
+ 313               	.LCFI20:
+ 314               		.cfi_def_cfa_offset 7
+ 315               		.cfi_offset 21, -6
+ 316 0150 6F93      		push r22
+ 317               	.LCFI21:
+ 318               		.cfi_def_cfa_offset 8
+ 319               		.cfi_offset 22, -7
+ 320 0152 7F93      		push r23
+ 321               	.LCFI22:
+ 322               		.cfi_def_cfa_offset 9
+ 323               		.cfi_offset 23, -8
+ 324 0154 8F93      		push r24
+ 325               	.LCFI23:
+ 326               		.cfi_def_cfa_offset 10
+ 327               		.cfi_offset 24, -9
+ 328 0156 9F93      		push r25
+ 329               	.LCFI24:
+ 330               		.cfi_def_cfa_offset 11
+ 331               		.cfi_offset 25, -10
+ 332 0158 AF93      		push r26
+ 333               	.LCFI25:
+ 334               		.cfi_def_cfa_offset 12
+ 335               		.cfi_offset 26, -11
+ 336 015a BF93      		push r27
+ 337               	.LCFI26:
+ 338               		.cfi_def_cfa_offset 13
+ 339               		.cfi_offset 27, -12
+ 340 015c EF93      		push r30
+ 341               	.LCFI27:
+ 342               		.cfi_def_cfa_offset 14
+ 343               		.cfi_offset 30, -13
+ 344 015e FF93      		push r31
+ 345               	.LCFI28:
+ 346               		.cfi_def_cfa_offset 15
+ 347               		.cfi_offset 31, -14
+ 348               	/* prologue: Signal */
+ 349               	/* frame size = 0 */
+ 350               	/* stack size = 14 */
+ 351               	.L__stack_usage = 14
+  98:uart_async.c  ****     int read_pointer = (tx_buffer.start + 1) % UART_TX_BUFFER_SIZE;
+ 352               		.loc 1 98 0
+ 353 0160 8091 0000 		lds r24,tx_buffer+128
+ 354 0164 9091 0000 		lds r25,tx_buffer+128+1
+ 355 0168 0196      		adiw r24,1
+ 356 016a 60E4      		ldi r22,lo8(64)
+ 357 016c 70E0      		ldi r23,0
+ 358 016e 0E94 0000 		call __divmodhi4
+ 359               	.LVL11:
+  99:uart_async.c  ****     
+ 100:uart_async.c  ****     /* Transmit next byte if data available in ringbuffer. */
+ 101:uart_async.c  ****     if (read_pointer != tx_buffer.end) {
+ 360               		.loc 1 101 0
+ 361 0172 2091 0000 		lds r18,tx_buffer+130
+ 362 0176 3091 0000 		lds r19,tx_buffer+130+1
+ 363 017a 8217      		cp r24,r18
+ 364 017c 9307      		cpc r25,r19
+ 365 017e 01F0      		breq .L10
+ 102:uart_async.c  ****         UDR0 = tx_buffer.buffer[read_pointer];
+ 366               		.loc 1 102 0
+ 367 0180 FC01      		movw r30,r24
+ 368 0182 EE0F      		lsl r30
+ 369 0184 FF1F      		rol r31
+ 370 0186 E050      		subi r30,lo8(-(tx_buffer))
+ 371 0188 F040      		sbci r31,hi8(-(tx_buffer))
+ 372 018a 2081      		ld r18,Z
+ 373 018c 2093 C600 		sts 198,r18
+ 103:uart_async.c  ****         tx_buffer.start = read_pointer;
+ 374               		.loc 1 103 0
+ 375 0190 9093 0000 		sts tx_buffer+128+1,r25
+ 376 0194 8093 0000 		sts tx_buffer+128,r24
+ 377 0198 00C0      		rjmp .L9
+ 378               	.L10:
+ 104:uart_async.c  ****     } else {
+ 105:uart_async.c  ****         /* Nothing to send. Disable the transmit interrupt for serial port 0. */
+ 106:uart_async.c  ****         UCSR0B &= ~_BV(UDRIE0);
+ 379               		.loc 1 106 0
+ 380 019a 8091 C100 		lds r24,193
+ 381               	.LVL12:
+ 382 019e 8F7D      		andi r24,lo8(-33)
+ 383 01a0 8093 C100 		sts 193,r24
+ 384               	.LVL13:
+ 385               	.L9:
+ 386               	/* epilogue start */
+ 107:uart_async.c  ****     }
+ 108:uart_async.c  **** }
+ 387               		.loc 1 108 0
+ 388 01a4 FF91      		pop r31
+ 389 01a6 EF91      		pop r30
+ 390 01a8 BF91      		pop r27
+ 391 01aa AF91      		pop r26
+ 392 01ac 9F91      		pop r25
+ 393 01ae 8F91      		pop r24
+ 394 01b0 7F91      		pop r23
+ 395 01b2 6F91      		pop r22
+ 396 01b4 5F91      		pop r21
+ 397 01b6 3F91      		pop r19
+ 398 01b8 2F91      		pop r18
+ 399 01ba 0F90      		pop r0
+ 400 01bc 0FBE      		out __SREG__,r0
+ 401 01be 0F90      		pop r0
+ 402 01c0 1F90      		pop r1
+ 403 01c2 1895      		reti
+ 404               		.cfi_endproc
+ 405               	.LFE5:
+ 407               	.global	uart_input
+ 408               		.data
+ 411               	uart_input:
+ 412 0000 0000 00   		.zero	3
+ 413 0003 01        		.byte	1
+ 414 0004 0000 0000 		.zero	4
+ 415 0008 0000      		.word	0
+ 416 000a 0000      		.word	gs(uart_getchar)
+ 417 000c 0000      		.word	0
+ 418               	.global	uart_output
+ 421               	uart_output:
+ 422 000e 0000 00   		.zero	3
+ 423 0011 02        		.byte	2
+ 424 0012 0000 0000 		.zero	4
+ 425 0016 0000      		.word	gs(uart_putchar)
+ 426 0018 0000      		.word	0
+ 427 001a 0000      		.word	0
+ 428               		.local	rx_buffer
+ 429               		.comm	rx_buffer,132,1
+ 430               		.local	tx_buffer
+ 431               		.comm	tx_buffer,132,1
+ 432               		.text
+ 433               	.Letext0:
+ 434               		.file 2 "/usr/lib/avr/include/stdio.h"
+ 435               		.file 3 "/usr/lib/avr/include/stdint.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 uart_async.c
+     /tmp/ccpqxorX.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccpqxorX.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccpqxorX.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccpqxorX.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccpqxorX.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccpqxorX.s:12     .text:0000000000000000 uart_putchar
+     /tmp/ccpqxorX.s:429    .bss:0000000000000084 tx_buffer
+     /tmp/ccpqxorX.s:81     .text:000000000000005c uart_getchar
+                             .bss:0000000000000000 rx_buffer
+     /tmp/ccpqxorX.s:131    .text:000000000000008a uart_init
+     /tmp/ccpqxorX.s:174    .text:00000000000000c4 __vector_18
+     /tmp/ccpqxorX.s:289    .text:0000000000000140 __vector_19
+     /tmp/ccpqxorX.s:411    .data:0000000000000000 uart_input
+     /tmp/ccpqxorX.s:421    .data:000000000000000e uart_output
+
+UNDEFINED SYMBOLS
+__divmodhi4
+__do_copy_data
+__do_clear_bss

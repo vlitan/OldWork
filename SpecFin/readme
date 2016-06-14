@@ -1,0 +1,3 @@
+the main idea of this project is to analyse the audio outputed by the computer and to control a matrix of lights
+it was written in c# using bass library and other sound apis
+~2015

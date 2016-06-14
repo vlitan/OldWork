@@ -1,0 +1,30 @@
+
+
+
+LDA		[3]	//right3
+SUBA		[5]
+JGE		6	
+LDA		2
+STA		[0]
+HLT
+
+LDA		[4]	//up4
+SUBA		[6]
+JGE		12
+LDA		3
+STA		[0]
+HLT
+
+
+LDA		[5]	//left1
+SUBA		[3]
+JGE		18
+LDA		4
+STA		[0]
+HLT
+
+LDA		[6]	//down2
+SUBA		[4]
+LDA		1
+STA		[0]
+HLT

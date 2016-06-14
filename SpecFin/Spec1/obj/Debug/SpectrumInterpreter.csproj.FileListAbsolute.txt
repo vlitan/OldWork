@@ -1,0 +1,5 @@
+E:\Spec1\obj\Debug\SpectrumInterpreter.csprojResolveAssemblyReference.cache
+E:\Spec1\obj\Debug\SpectrumInterpreter.Spec1.Display.resources
+E:\Spec1\obj\Debug\Spec1.Form1.resources
+E:\Spec1\obj\Debug\SpectrumInterpreter.Spec1.Properties.Resources.resources
+E:\Spec1\obj\Debug\SpectrumInterpreter.csproj.GenerateResource.Cache
